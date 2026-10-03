@@ -1,0 +1,110 @@
+{#
+ # A post before and after it leaves (Base\Social\Controller\Admin\Crud\SocialPostCrudController::preview):
+ # per network, its reel as rendered and its cover, what the network would
+ # refuse, where it is - and the buttons.
+ #}
+{% extends '@Admin/layout.html.twig' %}
+
+{% block page_title %}{{ '@social.admin.preview.title'|trans }} · {{ post }}{% endblock %}
+
+{% block content_header %}
+<div class="admin-header">
+    <span class="admin-header-icon"><i class="fa-solid fa-film"></i></span>
+    <div class="admin-header-titles">
+        <h1>{{ post }}</h1>
+        <div class="admin-header-subtitle">{{ ('@social.admin.state.post.' ~ post.state.value)|trans }}{% if post.scheduledAt %} · {{ '@social.admin.preview.scheduled'|trans({date: post.scheduledAt|format_datetime('medium', 'short')}) }}{% endif %}</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+    .social-admin { display: grid; gap: 1rem; max-width: 72rem; }
+    .social-admin .card { padding: 1.1rem 1.25rem; }
+    .social-admin h2 { font-size: 1rem; margin: 0 0 .6rem; display: flex; align-items: center; gap: .5rem; }
+    .social-admin form.inline { display: inline; }
+    .social-bar { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .social-targets { display: grid; grid-template-columns: repeat(auto-fill, minmax(19rem, 1fr)); gap: 1rem; }
+    .social-target { display: grid; gap: .7rem; align-content: start; }
+    .social-target.is-off { opacity: .55; }
+    .social-media { display: grid; grid-template-columns: 2fr 1fr; gap: .5rem; }
+    .social-media video, .social-media img { width: 100%; aspect-ratio: 9 / 16; object-fit: contain; border-radius: .6rem; background: #000; }
+    .social-empty { display: grid; place-items: center; aspect-ratio: 9 / 16; border-radius: .6rem; background: rgba(127,127,127,.1); font-size: .85rem; opacity: .7; text-align: center; padding: 1rem; }
+    .social-state { display: inline-flex; align-items: center; gap: .4rem; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+    .social-state::before { content: ""; width: .55rem; height: .55rem; border-radius: 50%; background: currentColor; }
+    .social-state.is-published { color: #2d6a4f; } .social-state.is-failed { color: #c0392b; } .social-state.is-sent, .social-state.is-processing { color: #2563eb; } .social-state.is-rendered { color: #7c3aed; } .social-state.is-pending { color: #a8740f; }
+    .social-facts { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: .2rem .8rem; font-size: .85rem; }
+    .social-facts dt { opacity: .65; font-weight: 400; }
+    .social-facts dd { margin: 0; }
+    .social-check { margin: 0; padding-left: 1.1rem; font-size: .85rem; }
+    .social-check.is-ok { list-style: none; padding: 0; color: #2d6a4f; }
+    .social-error { white-space: pre-line; font-size: .85rem; }
+    .social-caption { white-space: pre-line; font-size: .9rem; margin: 0; }
+</style>
+<div class="social-admin">
+    <div class="card">
+        <div class="social-bar">
+            <a class="btn btn-outline-secondary" href="{{ admin_url(controller_fqcn, 'edit', post.id) }}"><i class="fa-solid fa-pen"></i> {{ '@social.admin.preview.edit'|trans }}</a>
+            <form class="inline" method="post" action="{{ admin_url(controller_fqcn, 'renderReel', post.id) }}"><input type="hidden" name="_token" value="{{ csrf_token('admin-action-renderReel') }}"><button class="btn btn-outline-secondary" type="submit"><i class="fa-solid fa-wand-magic-sparkles"></i> {{ '@social.admin.post.action.render'|trans }}</button></form>
+            <form class="inline" method="post" action="{{ admin_url(controller_fqcn, 'publish', post.id) }}" onsubmit="return confirm({{ '@social.admin.post.action.publish_confirm'|trans|json_encode }})"><input type="hidden" name="_token" value="{{ csrf_token('admin-action-publish') }}"><button class="btn btn-primary" type="submit"><i class="fa-solid fa-paper-plane"></i> {{ '@social.admin.post.action.publish'|trans }}</button></form>
+            <a class="btn btn-outline-secondary" href="{{ admin_url(controller_fqcn, 'preview', post.id) }}"><i class="fa-solid fa-rotate"></i> {{ '@social.admin.preview.reload'|trans }}</a>
+        </div>
+        {% if post.caption %}<p class="social-caption mt-3">{{ post.caption }}{% if post.tags %}<br><br>{{ post.tags|map(t => '#' ~ t)|join(' ') }}{% endif %}</p>{% endif %}
+    </div>
+
+    <div class="social-targets">
+        {% for row in rows %}
+        {% set target = row.target %}
+        <div class="card social-target{{ target.enabled ? '' : ' is-off' }}">
+            <h2>{{ target.platformLabel }} <span class="social-state is-{{ target.state.value }}">{{ ('@social.admin.state.target.' ~ target.state.value)|trans }}</span></h2>
+
+            <div class="social-media">
+                {% if target.renderedPath %}
+                    {% if target.renderedPath matches '/\\.(jpe?g|png|webp|gif)$/i' %}
+                    <img src="{{ admin_url(controller_fqcn, 'reel', post.id, {target: target.id, what: 'video'}) }}" alt="">
+                    {% else %}
+                    <video controls playsinline preload="metadata" src="{{ admin_url(controller_fqcn, 'reel', post.id, {target: target.id, what: 'video'}) }}"></video>
+                    {% endif %}
+                {% else %}
+                    <div class="social-empty">{{ '@social.admin.preview.not_rendered'|trans }}</div>
+                {% endif %}
+                {% if target.coverPath %}
+                    <img src="{{ admin_url(controller_fqcn, 'reel', post.id, {target: target.id, what: 'cover'}) }}" alt="{{ '@social.admin.preview.cover'|trans }}" title="{{ '@social.admin.preview.cover'|trans }}">
+                {% else %}
+                    <div class="social-empty">{{ '@social.admin.preview.no_cover'|trans }}</div>
+                {% endif %}
+            </div>
+
+            <dl class="social-facts">
+                {% if target.duration %}<dt>{{ '@social.admin.preview.duration'|trans }}</dt><dd>{{ target.duration|number_format(1) }} s</dd>{% endif %}
+                {% if target.width %}<dt>{{ '@social.admin.preview.size'|trans }}</dt><dd>{{ target.width }} × {{ target.height }}{% if target.size %} · {{ (target.size / 1048576)|number_format(1) }} MB{% endif %}</dd>{% endif %}
+                <dt>{{ '@social.admin.preview.template'|trans }}</dt><dd>{{ not post.useTemplate ? '@social.admin.preview.as_is'|trans : (target.template ?? post.template ?? '@social.admin.preview.template_default'|trans) }}</dd>
+                {% if target.caption %}<dt>{{ '@social.admin.target.caption'|trans }}</dt><dd>{{ target.caption|length > 80 ? target.caption|slice(0, 80) ~ '…' : target.caption }}</dd>{% endif %}
+                {% if target.title %}<dt>{{ '@social.admin.target.title'|trans }}</dt><dd>{{ target.title }}</dd>{% endif %}
+                {% if target.publishedAt %}<dt>{{ '@social.admin.preview.published_at'|trans }}</dt><dd>{{ target.publishedAt|format_datetime('medium', 'short') }}</dd>{% endif %}
+                {% if target.permalink %}<dt>{{ '@social.admin.preview.permalink'|trans }}</dt><dd><a href="{{ target.permalink }}" target="_blank" rel="noopener">{{ target.permalink|replace({'https://': ''})|slice(0, 40) }}</a></dd>{% endif %}
+                {% if row.capabilities %}<dt>{{ '@social.admin.preview.accepts'|trans }}</dt><dd>{{ row.capabilities.aspectRatios|join(', ') ?: '—' }}{% if row.capabilities.maxDuration %} · ≤ {{ row.capabilities.maxDuration|number_format(0) }} s{% endif %}{% if row.capabilities.captionMaxLength %} · {{ row.capabilities.captionMaxLength }} {{ '@social.admin.preview.characters'|trans }}{% endif %}</dd>{% endif %}
+            </dl>
+
+            {% if not row.connected %}<div class="alert alert-warning mb-0">{{ '@social.admin.preview.not_connected'|trans }} <a href="{{ path('social_admin_accounts') }}">{{ '@social.admin.accounts.title'|trans }}</a></div>{% endif %}
+
+            {% if target.enabled %}
+                {% if row.violations %}
+                <ul class="social-check">{% for violation in row.violations %}<li>{{ violation }}</li>{% endfor %}</ul>
+                {% else %}
+                <ul class="social-check is-ok"><li><i class="fa-solid fa-check"></i> {{ '@social.admin.preview.check_ok'|trans }}</li></ul>
+                {% endif %}
+            {% endif %}
+
+            {% if target.error %}<div class="alert alert-danger mb-0 social-error">{{ target.error }}</div>{% endif %}
+
+            {% if target.enabled and target.state.value in ['failed', 'rendered'] %}
+            <form method="post" action="{{ admin_url(controller_fqcn, 'retry', post.id, {target: target.id}) }}"><input type="hidden" name="_token" value="{{ csrf_token('admin-action-retry') }}"><button class="btn btn-outline-primary btn-sm" type="submit"><i class="fa-solid fa-rotate-right"></i> {{ (target.state.value == 'failed' ? '@social.admin.preview.retry' : '@social.admin.preview.send_this')|trans }}</button></form>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="card"><p class="mb-0">{{ '@social.admin.post.flash.no_target'|trans }}</p></div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

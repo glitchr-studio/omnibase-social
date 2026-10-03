@@ -1,0 +1,41 @@
+{#
+ # The account's last posts, a grid of squares (social_wall(limit, provider)):
+ # each opens the post on the network; a film plays, muted, while the pointer
+ # rests on it - from the network's address, as long as it answers. The
+ # pictures are the site's own copies (social:sync).
+ #}
+<link rel="stylesheet" href="{{ asset('bundles/social/css/social.css') }}">
+{% if items %}
+<ul class="social-wall" data-social-wall>
+    {% for item in items %}
+    <li class="social-wall-item{{ item.video ? ' is-video' }}">
+        <a href="{{ item.permalink }}" target="_blank" rel="noopener" title="{{ item.caption ? (item.caption|length > 120 ? item.caption|slice(0, 120) ~ '…' : item.caption) : item.providerLabel }}">
+            {% if item.thumbnail or item.mediaUrl %}<img src="{{ item.thumbnail ?: item.mediaUrl }}" alt="{{ item.caption ? item.caption|slice(0, 100) : '' }}" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+            {% if item.video and item.videoUrl %}<video muted loop playsinline preload="none" data-src="{{ item.videoUrl }}" aria-hidden="true"></video>{% endif %}
+            {% if item.video %}<span class="social-wall-badge" aria-hidden="true"><i class="fa-solid fa-play"></i></span>{% endif %}
+            <span class="social-wall-meta">
+                <span class="visually-hidden">{{ '@social.wall.open'|trans({network: item.providerLabel}) }}</span>
+                {% if item.likes is not null %}<span><i class="fa-solid fa-heart" aria-hidden="true"></i> {{ item.likes }}</span>{% endif %}
+                {% if item.comments is not null %}<span><i class="fa-solid fa-comment" aria-hidden="true"></i> {{ item.comments }}</span>{% endif %}
+            </span>
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+<script>
+(function () {
+    // A film plays muted while hovered (or focused), from the network's address; never loaded before.
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.querySelectorAll('[data-social-wall] video[data-src]').forEach(function (video) {
+        var link = video.closest('a');
+        var play = function () { if (!video.src) { video.src = video.dataset.src; } video.classList.add('is-playing'); var p = video.play(); if (p && p.catch) p.catch(function () { video.classList.remove('is-playing'); }); };
+        var stop = function () { video.pause(); video.classList.remove('is-playing'); };
+        video.addEventListener('error', function () { video.remove(); });
+        link.addEventListener('mouseenter', play); link.addEventListener('focus', play);
+        link.addEventListener('mouseleave', stop); link.addEventListener('blur', stop);
+    });
+})();
+</script>
+{% else %}
+<p class="social-wall-empty">{{ '@social.wall.empty'|trans }}</p>
+{% endif %}

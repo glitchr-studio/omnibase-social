@@ -1,0 +1,67 @@
+{#
+ # One public post embedded (social_embed(url)): an Instagram post, reel or
+ # film - anyone's, as long as it is public -, or a YouTube film. Nothing is
+ # asked of the network before the visitor wants it: a click (or the site's
+ # consent, `social_embed(url, true)` or a `social:consent` event on the
+ # document) loads Instagram's script, or the youtube-nocookie player.
+ #}
+<link rel="stylesheet" href="{{ asset('bundles/social/css/social.css') }}">
+{% if network == 'instagram' %}
+<figure class="social-embed is-instagram" data-social-embed="instagram"{{ consent ? ' data-social-consent' }}>
+    <blockquote class="instagram-media" data-instgrm-permalink="{{ permalink }}?utm_source=ig_embed" data-instgrm-version="14" data-instgrm-captioned>
+        <a href="{{ permalink }}" target="_blank" rel="noopener">{{ '@social.embed.instagram'|trans }}</a>
+    </blockquote>
+    <button type="button" class="social-embed-load" data-social-embed-load>{{ '@social.embed.load'|trans({network: 'Instagram'}) }}</button>
+    <figcaption class="social-embed-note">{{ '@social.embed.note'|trans({network: 'Instagram'}) }}</figcaption>
+</figure>
+{% elseif network == 'youtube' %}
+<figure class="social-embed is-youtube" data-social-embed="youtube" data-social-src="https://www.youtube-nocookie.com/embed/{{ id }}?autoplay=1&rel=0"{{ consent ? ' data-social-consent' }}>
+    <button type="button" class="social-embed-poster" data-social-embed-load style="background-image: url('https://i.ytimg.com/vi/{{ id }}/hqdefault.jpg')">
+        <span class="social-embed-play" aria-hidden="true"><i class="fa-solid fa-play"></i></span>
+        <span class="visually-hidden">{{ '@social.embed.load'|trans({network: 'YouTube'}) }}</span>
+    </button>
+    <figcaption class="social-embed-note">{{ '@social.embed.note'|trans({network: 'YouTube'}) }} <a href="{{ permalink }}" target="_blank" rel="noopener">{{ '@social.embed.open'|trans({network: 'YouTube'}) }}</a></figcaption>
+</figure>
+{% else %}
+<p class="social-embed-link"><a href="{{ url }}" target="_blank" rel="noopener">{{ url }}</a></p>
+{% endif %}
+{% if network %}
+<script>
+(function () {
+    if (window.socialEmbed) { window.socialEmbed.scan(); return; }
+    var load = function (figure) {
+        if (figure.dataset.socialLoaded) return;
+        figure.dataset.socialLoaded = '1';
+        if ('youtube' === figure.dataset.socialEmbed) {
+            var frame = document.createElement('iframe');
+            frame.src = figure.dataset.socialSrc; frame.title = 'YouTube'; frame.loading = 'lazy';
+            frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'; frame.allowFullscreen = true;
+            figure.querySelector('[data-social-embed-load]').replaceWith(frame);
+            return;
+        }
+        var button = figure.querySelector('[data-social-embed-load]'); if (button) button.remove();
+        if (window.instgrm) { window.instgrm.Embeds.process(); return; }
+        if (!document.querySelector('script[data-social-instagram]')) {
+            var script = document.createElement('script');
+            script.async = true; script.src = 'https://www.instagram.com/embed.js'; script.dataset.socialInstagram = '1';
+            document.body.appendChild(script);
+        }
+    };
+    window.socialEmbed = {
+        load: load,
+        scan: function () {
+            document.querySelectorAll('[data-social-embed]').forEach(function (figure) {
+                if (figure.dataset.socialBound) return;
+                figure.dataset.socialBound = '1';
+                var button = figure.querySelector('[data-social-embed-load]');
+                if (button) button.addEventListener('click', function () { load(figure); });
+                if (figure.hasAttribute('data-social-consent')) load(figure);
+            });
+        },
+    };
+    // The site's cookie banner says yes: everything embedded loads.
+    document.addEventListener('social:consent', function () { document.querySelectorAll('[data-social-embed]').forEach(load); });
+    window.socialEmbed.scan();
+})();
+</script>
+{% endif %}

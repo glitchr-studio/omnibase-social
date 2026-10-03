@@ -1,0 +1,95 @@
+{#
+ # The accounts on the networks (Base\Social\Controller\Admin\AccountsController),
+ # in the style of the back office's tools pages: per network, the account,
+ # its token, the buttons.
+ #}
+{% extends '@Admin/layout.html.twig' %}
+
+{% block page_title %}{{ '@social.admin.accounts.title'|trans }}{% endblock %}
+
+{% block content_header %}
+<div class="admin-header">
+    <span class="admin-header-icon"><i class="fa-solid fa-share-nodes"></i></span>
+    <div class="admin-header-titles">
+        <h1>{{ '@social.admin.accounts.title'|trans }}</h1>
+        <div class="admin-header-subtitle">{{ '@social.admin.accounts.lead'|trans }}</div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+    .tools-admin { display: grid; gap: 1rem; max-width: 64rem; }
+    .tools-admin .card { padding: 1.1rem 1.25rem; }
+    .tools-admin h2 { font-size: 1rem; margin: 0 0 .6rem; }
+    .tools-admin form.inline { display: inline; }
+    .tools-admin .state { display: inline-flex; align-items: center; gap: .4rem; font-weight: 700; }
+    .tools-admin .state::before { content: ""; width: .55rem; height: .55rem; border-radius: 50%; background: currentColor; }
+    .tools-admin .is-on { color: #2d6a4f; } .tools-admin .is-off { color: #a8740f; } .tools-admin .is-late { color: #c0392b; }
+    .social-account { display: flex; align-items: center; gap: .8rem; margin: .6rem 0; }
+    .social-account img { width: 3.2rem; height: 3.2rem; border-radius: 50%; object-fit: cover; background: rgba(127,127,127,.15); }
+    .social-account small { display: block; opacity: .7; }
+    .social-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .7rem; }
+    .social-key { display: flex; gap: .5rem; margin-top: .8rem; max-width: 34rem; }
+    .social-note { font-size: .85rem; opacity: .8; margin: .6rem 0 0; }
+</style>
+<div class="tools-admin">
+    {% for row in rows %}
+    {% set token = row.token %}
+    <div class="card">
+        <h2>{{ row.label }}</h2>
+        {% if row.connected %}
+        <p class="state is-on">{{ '@social.admin.accounts.connected'|trans }}{% if row.account.username is defined %} · @{{ row.account.username }}{% endif %}</p>
+        {% if row.account.username is defined %}
+        <div class="social-account">
+            {% if row.account.picture is defined %}<img src="{{ row.account.picture }}" alt="" referrerpolicy="no-referrer">{% endif %}
+            <div>
+                <b>{{ row.account.name ?? row.account.username }}</b>
+                <small>{% if row.account.followers is defined %}{{ '@social.admin.accounts.followers'|trans({count: row.account.followers}) }}{% endif %}{% if row.account.posts is defined %} · {{ '@social.admin.accounts.posts'|trans({count: row.account.posts}) }}{% endif %}{% if row.account.url is defined %} · <a href="{{ row.account.url }}" target="_blank" rel="noopener">{{ '@social.admin.accounts.open'|trans }}</a>{% endif %}</small>
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="state is-off">{{ '@social.admin.accounts.not_connected'|trans }}</p>
+        {% endif %}
+
+        {% if token and token.expiresAt %}
+        <p class="mb-1">{% if token.expired %}<span class="state is-late">{{ '@social.admin.accounts.token_dead'|trans({date: token.expiresAt|format_datetime('medium', 'short')}) }}</span>{% elseif token.expiring(10) and not token.refreshToken %}<span class="state is-late">{{ '@social.admin.accounts.token_expiring'|trans({date: token.expiresAt|format_datetime('medium', 'short')}) }}</span>{% else %}{{ '@social.admin.accounts.token_until'|trans({date: token.expiresAt|format_datetime('medium', 'short')}) }}{% endif %}</p>
+        {% elseif token and token.refreshToken %}
+        <p class="mb-1">{{ '@social.admin.accounts.token_refresh'|trans }}</p>
+        {% endif %}
+        {% if row.feed %}<p class="mb-1">{{ row.last_sync ? '@social.admin.accounts.synced'|trans({date: row.last_sync|format_datetime('medium', 'short'), count: row.count}) : '@social.admin.accounts.never_synced'|trans }}</p>{% endif %}
+        {% if row.error %}<div class="alert alert-danger mt-2">{{ row.error }}</div>{% endif %}
+
+        <div class="social-actions">
+            {% if row.oauth %}
+            <form class="inline" method="post" action="{{ path('social_admin_connect', {provider: row.name}) }}"><input type="hidden" name="_token" value="{{ csrf_token('social-connect-' ~ row.name) }}"><button class="btn {{ row.connected ? 'btn-outline-secondary btn-sm' : 'btn-primary' }}" type="submit"><i class="fa-solid fa-plug"></i> {{ (row.connected ? '@social.admin.accounts.reconnect' : '@social.admin.accounts.connect')|trans({network: row.label}) }}</button></form>
+            {% endif %}
+            {% if row.connected and row.refreshable %}
+            <form class="inline" method="post" action="{{ path('social_admin_refresh', {provider: row.name}) }}"><input type="hidden" name="_token" value="{{ csrf_token('social-refresh-' ~ row.name) }}"><button class="btn btn-outline-secondary btn-sm" type="submit"><i class="fa-solid fa-key"></i> {{ '@social.admin.accounts.refresh'|trans }}</button></form>
+            {% endif %}
+            {% if row.feed and (row.connected or row.api_key) %}
+            <form class="inline" method="post" action="{{ path('social_admin_sync', {provider: row.name}) }}"><input type="hidden" name="_token" value="{{ csrf_token('social-sync-' ~ row.name) }}"><button class="btn btn-outline-secondary btn-sm" type="submit"><i class="fa-solid fa-rotate"></i> {{ '@social.admin.accounts.sync'|trans }}</button></form>
+            {% endif %}
+            {% if token %}
+            <form class="inline" method="post" action="{{ path('social_admin_disconnect', {provider: row.name}) }}" onsubmit="return confirm({{ '@social.admin.accounts.disconnect_confirm'|trans|json_encode }})"><input type="hidden" name="_token" value="{{ csrf_token('social-disconnect-' ~ row.name) }}"><button class="btn btn-outline-danger btn-sm" type="submit">{{ '@social.admin.accounts.disconnect'|trans }}</button></form>
+            {% endif %}
+        </div>
+
+        {% if row.name == 'youtube' %}
+        <form class="social-key" method="post" action="{{ path('social_admin_key', {provider: row.name}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('social-key-' ~ row.name) }}">
+            <input class="form-control" type="password" name="api_key" autocomplete="off" placeholder="{{ row.api_key ? '@social.admin.accounts.key_set'|trans : '@social.admin.accounts.key_missing'|trans }}">
+            <button class="btn btn-outline-secondary" type="submit">{{ '@social.admin.accounts.key_save'|trans }}</button>
+        </form>
+        <p class="social-note"><span class="state {{ row.api_key ? 'is-on' : 'is-off' }}">{{ (row.api_key ? '@social.admin.accounts.key_set' : '@social.admin.accounts.key_missing')|trans }}</span> · {{ '@social.admin.accounts.key_help'|trans }}</p>
+        {% endif %}
+
+        {% if row.oauth %}<p class="social-note">{{ '@social.admin.accounts.callback'|trans }} <code>{{ row.callback }}</code></p>{% endif %}
+        {% if row.name == 'instagram' and not row.connected %}<p class="social-note">{{ '@social.admin.accounts.instagram_help'|trans }}</p>{% endif %}
+    </div>
+    {% else %}
+    <div class="card"><p class="mb-0">{{ '@social.admin.accounts.none'|trans }}</p></div>
+    {% endfor %}
+</div>
+{% endblock %}

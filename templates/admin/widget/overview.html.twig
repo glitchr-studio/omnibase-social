@@ -1,0 +1,29 @@
+{# The networks at a glance (Base\Social\Admin\Widget\SocialWidgetType). #}
+<div class="analytics-card card social-overview">
+    <div class="analytics-card-header">
+        <h2 class="analytics-card-title">{{ widget.label|trans({}, 'admin') }}</h2>
+    </div>
+    <div class="social-overview-body">
+        {% for row in rows %}
+        <a class="social-overview-row" href="{{ path('social_admin_accounts') }}">
+            <b>{{ row.label }}{% if row.username %} · @{{ row.username }}{% endif %}</b>
+            {% if not row.connected %}
+            <span class="is-warn">{{ '@social.admin.accounts.not_connected'|trans }}</span>
+            {% else %}
+            <span>{% if row.last %}{{ ('@social.admin.state.target.' ~ row.last.state.value)|trans }} · {{ row.last.post }}{% if row.last.updatedAt %} · {{ row.last.updatedAt|format_datetime('short', 'short') }}{% endif %}{% else %}{{ '@social.admin.widget.nothing_sent'|trans }}{% endif %}</span>
+            <small>{{ row.synced ? '@social.admin.widget.synced'|trans({date: row.synced|format_datetime('short', 'short')}) : '@social.admin.accounts.never_synced'|trans }}</small>
+            {% if row.expiring %}<span class="is-warn">{{ '@social.admin.accounts.token_expiring'|trans({date: row.expires|format_datetime('short', 'short')}) }}</span>{% endif %}
+            {% endif %}
+        </a>
+        {% else %}
+        <p class="social-overview-empty">{{ '@social.admin.accounts.none'|trans }}</p>
+        {% endfor %}
+    </div>
+</div>
+<style>
+    .social-overview-body { display: grid; gap: .5rem; padding: 0 1rem 1rem; }
+    .social-overview-row { display: grid; gap: .15rem; padding: .7rem .9rem; border-radius: .75rem; background: rgba(127,127,127,.08); color: inherit; text-decoration: none; font-size: .85rem; }
+    .social-overview-row small { opacity: .7; }
+    .social-overview-row .is-warn { color: #d9404e; font-weight: 600; }
+    .social-overview-empty { margin: 0; font-size: .85rem; opacity: .7; }
+</style>
