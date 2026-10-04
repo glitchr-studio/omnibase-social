@@ -13,10 +13,14 @@ use Base\Field\SelectField;
 use Base\Field\TextField;
 use Base\Field\VideoField;
 use Base\Social\Entity\Template;
+use Base\Social\Enum\Fit;
+use Base\Social\Enum\LogoPosition;
 use Base\Social\Service\Accounts;
 use Doctrine\ORM\EntityManagerInterface;
 use Omnipost\Platform;
+use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Contracts\Service\Attribute\Required;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The site's identity on a reel: the logo and its corner, the band and its
@@ -27,11 +31,13 @@ use Symfony\Contracts\Service\Attribute\Required;
 class TemplateCrudController extends AbstractCrudController
 {
     private Accounts $accounts;
+    private TranslatorInterface $translator;
 
     #[Required]
-    public function setSocialServices(Accounts $accounts): void
+    public function setSocialServices(Accounts $accounts, TranslatorInterface $translator): void
     {
         $this->accounts = $accounts;
+        $this->translator = $translator;
     }
 
     public static function getEntityFqcn(): string
@@ -56,18 +62,38 @@ class TemplateCrudController extends AbstractCrudController
         yield BooleanField::new('default', '@social.admin.template.default')->setColumns(2)->setHelp('@social.admin.template.default_help');
         yield SelectField::new('platform', '@social.admin.template.platform')->setChoices($platforms)->setRequired(false)->setColumns(4)->setHelp('@social.admin.template.platform_help');
         yield ImageField::new('logo', '@social.admin.template.logo')->setColumns(4)->setRequired(false);
-        yield SelectField::new('logoPosition', '@social.admin.template.logo_position')->setColumns(4)->hideOnIndex();
+        yield $this->enum('logoPosition', '@social.admin.template.logo_position', LogoPosition::class)->setColumns(4)->hideOnIndex();
         yield NumberField::new('logoScale', '@social.admin.template.logo_scale')->setColumns(4)->hideOnIndex()->setHelp('@social.admin.template.logo_scale_help');
         yield BooleanField::new('band', '@social.admin.template.band')->setColumns(2);
         yield TextField::new('bandText', '@social.admin.template.band_text')->setColumns(4)->setRequired(false);
         yield ColorPickerField::new('bandColor', '@social.admin.template.band_color')->setColumns(2)->hideOnIndex();
         yield ColorPickerField::new('textColor', '@social.admin.template.text_color')->setColumns(2)->hideOnIndex();
         yield FileField::new('font', '@social.admin.template.font')->setColumns(2)->hideOnIndex()->setRequired(false)->setHelp('@social.admin.template.font_help');
-        yield SelectField::new('fit', '@social.admin.template.fit')->setColumns(4)->hideOnIndex()->setHelp('@social.admin.template.fit_help');
+        yield $this->enum('fit', '@social.admin.template.fit', Fit::class)->setColumns(4)->hideOnIndex()->setHelp('@social.admin.template.fit_help');
         yield ColorPickerField::new('background', '@social.admin.template.background')->setColumns(4)->hideOnIndex();
         yield NumberField::new('fadeSeconds', '@social.admin.template.fade')->setColumns(4)->hideOnIndex();
         yield VideoField::new('intro', '@social.admin.template.intro')->setColumns(6)->hideOnIndex()->setRequired(false);
         yield VideoField::new('outro', '@social.admin.template.outro')->setColumns(6)->hideOnIndex()->setRequired(false);
+    }
+
+    /**
+     * A PHP enum of the template (the logo's corner, the fit), chosen in a
+     * list: Symfony's EnumType on the enum itself. A SelectField guesses its
+     * choices from an entity or from one of omnibase's Doctrine enum types,
+     * not from a native enum: it had none to offer and the form did not open.
+     * Each case is named by the field's label followed by its value
+     * (@social.admin.template.fit_cover).
+     *
+     * @param class-string<\BackedEnum> $enum
+     */
+    private function enum(string $property, string $label, string $enum): TextField
+    {
+        $name = fn (\BackedEnum $case): string => $label.'_'.$case->value;
+
+        return TextField::new($property, $label)
+            ->setFormType(EnumType::class)
+            ->setFormTypeOptions(['class' => $enum, 'choice_label' => $name])
+            ->formatValue(fn ($value) => $value instanceof \BackedEnum ? $this->translator->trans($name($value)) : $value);
     }
 
     /** One site's template: the one saved as such takes the place of the others. */

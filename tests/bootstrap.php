@@ -1,10 +1,12 @@
 <?php
 
-// Standalone (composer install in this checkout) or inside a host application
-// (vendor/omnibase/social): whichever autoloader exists is used, and the test
-// namespace is registered by hand because a host's autoloader never reads a
-// dependency's autoload-dev.
-$candidates = [__DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php'];
+// Standalone (composer install in this checkout), inside a host application
+// (vendor/omnibase/social), or against a host's vendor dir mounted elsewhere
+// (/srv/app/vendor in the docker runner, where this checkout is a symlink's
+// target): whichever autoloader exists is used, and the test namespace is
+// registered by hand because a host's autoloader never reads a dependency's
+// autoload-dev.
+$candidates = [__DIR__.'/../vendor/autoload.php', __DIR__.'/../../../autoload.php', '/srv/app/vendor/autoload.php'];
 foreach ($candidates as $candidate) {
     if (is_file($candidate)) {
         $loader = require $candidate;
