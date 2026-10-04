@@ -21,6 +21,7 @@ use Base\Field\TextField;
 use Base\Field\VideoField;
 use Base\Social\Entity\SocialPost;
 use Base\Social\Entity\SocialPostTarget;
+use Base\Social\Entity\Template;
 use Base\Social\Enum\TargetState;
 use Base\Social\Form\TargetType;
 use Base\Social\Message\RenderPostMessage;
@@ -29,6 +30,7 @@ use Base\Social\Service\Publisher;
 use Omnipost\Exception\OmnipostException;
 use Omnipost\Model\PostKind;
 use Omnipost\PublisherInterface;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
@@ -87,12 +89,15 @@ class SocialPostCrudController extends AbstractCrudController
         yield ImageField::new('image', '@social.admin.post.image')->setColumns(6)->hideOnIndex()->setRequired(false);
         yield TextareaField::new('caption', '@social.admin.post.caption')->hideOnIndex();
         yield SelectField::new('tags', '@social.admin.post.tags')->allowMultipleChoices()->allowTags([',', ' ', ';'])->setRequired(false)->setColumns(12)->hideOnIndex()->setHelp('@social.admin.post.tags_help');
-        yield AssociationField::new('template', '@social.admin.post.template')->setRequired(false)->setColumns(4)->setHelp('@social.admin.post.template_help');
+        // Chosen in the list of the site's templates (Symfony's EntityType), not edited from here:
+        // AssociationType embeds the template's own form in the post's.
+        yield AssociationField::new('template', '@social.admin.post.template')->setRequired(false)->setColumns(4)->setHelp('@social.admin.post.template_help')
+            ->setFormType(EntityType::class)->setFormTypeOptions(['class' => Template::class, 'placeholder' => '']);
         yield BooleanField::new('useTemplate', '@social.admin.post.use_template')->setColumns(2)->hideOnIndex();
         yield NumberField::new('coverSecond', '@social.admin.post.cover_second')->setColumns(2)->hideOnIndex()->setHelp('@social.admin.post.cover_second_help');
         yield DateTimePickerField::new('scheduledAt', '@social.admin.post.scheduled_at')->setColumns(4)->setRequired(false)->setHelp('@social.admin.post.scheduled_at_help');
         yield TextField::new('link', '@social.admin.post.link')->setColumns(12)->hideOnIndex()->setRequired(false);
-        yield CollectionField::new('targets', '@social.admin.post.targets')->setEntryType(TargetType::class)->allowAdd()->allowDelete()->hideOnIndex()
+        yield CollectionField::new('targets', '@social.admin.post.targets')->setEntryType(TargetType::class)->allowAdd()->allowDelete()->allowObject()->hideOnIndex()
             ->setFormTypeOptions(['by_reference' => false]);
         yield DateTimeField::new('createdAt', '@social.admin.post.created_at')->onlyOnIndex();
     }

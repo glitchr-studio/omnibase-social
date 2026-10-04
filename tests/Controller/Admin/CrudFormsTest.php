@@ -3,24 +3,37 @@
 namespace Base\Social\Tests\Controller\Admin;
 
 use Base\Field\FieldDescriptor;
+use Base\Field\Type\AssociationType;
+use Base\Field\Type\CollectionType;
+use Base\Social\Controller\Admin\Crud\SocialPostCrudController;
 use Base\Social\Controller\Admin\Crud\TemplateCrudController;
 use Base\Social\Entity\Template;
 use Base\Social\Enum\Fit;
 use Base\Social\Enum\LogoPosition;
+use Base\Social\Form\TargetType;
 use Base\Social\Service\Accounts;
+use Base\Social\Service\Publisher;
 use Doctrine\ORM\Mapping as ORM;
 use PHPUnit\Framework\TestCase;
+use Symfony\Bridge\Doctrine\Form\Type\EntityType;
 use Symfony\Component\Form\Extension\Core\Type\EnumType;
 use Symfony\Component\Form\Extension\Core\Type\FormType;
 use Symfony\Component\Form\Forms;
+use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The "new" and "edit" forms of the social screens, as their fields declare
  * them - no kernel here, the screens themselves are opened by the host
- * application's tests. What made a form answer 500: a PHP enum behind a
- * SelectField, which guesses its choices from an entity or one of omnibase's
- * Doctrine enum types and found none (the template's logoPosition and fit).
+ * application's tests. What made a form answer 500:
+ *
+ * - a PHP enum behind a SelectField, which guesses its choices from an
+ *   entity or one of omnibase's Doctrine enum types and found none (the
+ *   template's logoPosition and fit);
+ * - a collection of entities without allow_object (the post's targets);
+ * - a related record through AssociationType, which embeds that record's
+ *   own form - its fields guessed from the mapping, an enum among them as a
+ *   text input (the post's template).
  */
 final class CrudFormsTest extends TestCase
 {
@@ -81,12 +94,37 @@ final class CrudFormsTest extends TestCase
         self::assertSame('[@social.admin.template.fit_contain]', $format(Fit::CONTAIN, new Template()));
     }
 
+    public function testThePostTakesItsTargetsAsObjectsAndChoosesItsTemplateInAList(): void
+    {
+        foreach (self::formFields($this->posts()) as $page => $fields) {
+            self::assertSame(CollectionType::class, $fields['targets']->getFormType(), $page);
+            self::assertSame(TargetType::class, $fields['targets']->getFormTypeOption('entry_type'), $page);
+            self::assertTrue($fields['targets']->getFormTypeOption('allow_object'), 'the targets are entities: the collection is told so ('.$page.')');
+
+            self::assertNotSame([], self::enumsOf(Template::class));
+            self::assertNotSame(AssociationType::class, $fields['template']->getFormType(), 'AssociationType embeds the template\'s form, whose enums it prints in a text input ('.$page.')');
+            self::assertSame(EntityType::class, $fields['template']->getFormType(), $page);
+            self::assertSame(Template::class, $fields['template']->getFormTypeOption('class'), $page);
+            self::assertFalse($fields['template']->isRequired(), 'a post may name no template');
+
+            self::assertArrayNotHasKey('state', $fields, 'the state is not written by hand');
+        }
+    }
+
     private function templates(): TemplateCrudController
     {
         $translator = $this->createStub(TranslatorInterface::class);
         $translator->method('trans')->willReturnCallback(fn (string $id) => '['.$id.']');
         $crud = (new \ReflectionClass(TemplateCrudController::class))->newInstanceWithoutConstructor();
         $crud->setSocialServices($this->accounts(), $translator);
+
+        return $crud;
+    }
+
+    private function posts(): SocialPostCrudController
+    {
+        $crud = (new \ReflectionClass(SocialPostCrudController::class))->newInstanceWithoutConstructor();
+        $crud->setSocialServices($this->createStub(MessageBusInterface::class), $this->createStub(Publisher::class), $this->accounts());
 
         return $crud;
     }
@@ -124,5 +162,14 @@ final class CrudFormsTest extends TestCase
         }
 
         return null;
+    }
+
+    /** @return list<string> the properties of an entity mapped to a PHP enum */
+    private static function enumsOf(string $entity): array
+    {
+        return array_values(array_filter(
+            array_map(fn (\ReflectionProperty $property) => $property->getName(), (new \ReflectionClass($entity))->getProperties()),
+            fn (string $property) => null !== self::enumOf($entity, $property),
+        ));
     }
 }
