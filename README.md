@@ -199,3 +199,7 @@ when the feed was read, a word when a token dies soon.
 `tests/` holds unit tests that need no kernel: the ffmpeg command
 (`RendererCommandTest`), `SocialPost::toPost()` and its variants, the media
 token. `vendor/bin/phpunit` in a checkout with its dependencies.
+
+## License
+
+MIT since 2026-10-09; earlier versions remain published under LGPL-3.0-or-later.

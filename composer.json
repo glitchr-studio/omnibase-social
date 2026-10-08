@@ -2,7 +2,7 @@
     "name": "omnibase/social",
     "description": "Social publishing for omnibase: a reel rendered from the site’s own template (ffmpeg), published on each network through glitchr/omnipost, and the account’s feed cached for a wall on the site.",
     "type": "symfony-bundle",
-    "license": "LGPL-3.0-or-later",
+    "license": "MIT",
     "authors": [{"name": "Marco Meyer", "email": "marco.meyer@glitchr.io"}],
     "require": {
         "php": "^8.2",
